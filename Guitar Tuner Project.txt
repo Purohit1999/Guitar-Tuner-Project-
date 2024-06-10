@@ -1,0 +1,87 @@
+Creating a Java program to assist in tuning a guitar involves capturing audio input from the microphone, analyzing the frequency of the captured sound, and providing feedback to the user to help them tune each string to the correct pitch. Here’s a simple example using Java and the TarsosDSP library, which is well-suited for real-time audio processing and pitch detection.
+
+First, make sure you have the TarsosDSP library. You can download it from the TarsosDSP GitHub repository or use a build tool like Maven or Gradle to include it in your project.
+
+Here's a basic Java program that uses TarsosDSP to detect the pitch of the sound input and provide feedback for tuning a guitar:
+
+Add TarsosDSP to your project:
+If you are using Maven, add the following dependency to your pom.xml:
+
+--------------------------------------------------------------------------
+<dependency>
+    <groupId>be.tarsos</groupId>
+    <artifactId>tarsosdsp</artifactId>
+    <version>2.4</version>
+</dependency>
+------------------------------------------------------------------------------
+
+import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.io.jvm.AudioDispatcherFactory;
+import be.tarsos.dsp.pitch.PitchDetectionHandler;
+import be.tarsos.dsp.pitch.PitchDetectionResult;
+import be.tarsos.dsp.pitch.PitchProcessor;
+
+import javax.sound.sampled.LineUnavailableException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class GuitarTuner {
+    // Frequencies for standard tuning (E A D G B e)
+    private static final Map<String, Double> stringFrequencies = new HashMap<>();
+    static {
+        stringFrequencies.put("E2", 82.41);
+        stringFrequencies.put("A2", 110.00);
+        stringFrequencies.put("D3", 146.83);
+        stringFrequencies.put("G3", 196.00);
+        stringFrequencies.put("B3", 246.94);
+        stringFrequencies.put("E4", 329.63);
+    }
+
+    public static void main(String[] args) throws LineUnavailableException {
+        AudioDispatcher dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(2048, 0);
+        PitchDetectionHandler handler = new PitchDetectionHandler() {
+            @Override
+            public void handlePitch(PitchDetectionResult result, be.tarsos.dsp.AudioEvent e) {
+                float pitch = result.getPitch();
+                if (pitch != -1) {
+                    String closestString = getClosestString(pitch);
+                    double targetFrequency = stringFrequencies.get(closestString);
+                    double difference = pitch - targetFrequency;
+                    System.out.printf("Detected pitch: %.2f Hz - Closest string: %s (%.2f Hz) - Difference: %.2f Hz%n",
+                            pitch, closestString, targetFrequency, difference);
+                }
+            }
+        };
+
+        dispatcher.addAudioProcessor(new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.YIN, 44100, 2048, handler));
+        new Thread(dispatcher).start();
+    }
+
+    private static String getClosestString(double pitch) {
+        String closestString = null;
+        double smallestDifference = Double.MAX_VALUE;
+        for (Map.Entry<String, Double> entry : stringFrequencies.entrySet()) {
+            double difference = Math.abs(pitch - entry.getValue());
+            if (difference < smallestDifference) {
+                smallestDifference = difference;
+                closestString = entry.getKey();
+            }
+        }
+        return closestString;
+    }
+}
+
+Explanation:
+Dependencies: We include the TarsosDSP library for audio processing and pitch detection.
+String Frequencies: We set up a map with the standard tuning frequencies for each guitar string.
+Main Method:
+We create an AudioDispatcher to capture audio from the default microphone.
+We define a PitchDetectionHandler to process the detected pitch.
+We start the AudioDispatcher in a new thread to begin capturing and processing audio.
+Pitch Detection:
+The detected pitch is compared with the standard tuning frequencies.
+The closest string and the difference in frequency are printed.
+Running the Program
+Ensure you have a microphone connected to your computer.
+Compile and run the program. The output will show the detected pitch and how close it is to the nearest string's target frequency.
+This is a basic implementation and might need further refinement for practical use, such as handling noise, improving user interface, and providing more detailed tuning instructions.
